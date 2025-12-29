@@ -382,6 +382,20 @@ export const makeMessagesSocket = (config: SocketConfig) => {
     return { nodes, shouldIncludeDeviceIdentity };
   };
 
+  const getNativeFlowBizName = (message: proto.IMessage) => {
+    const nativeFlow = message.interactiveMessage?.nativeFlowMessage;
+    const firstButtonName = nativeFlow?.buttons?.[0]?.name;
+    if (firstButtonName === "review_and_pay") {
+      return "order_details";
+    }
+
+    if (firstButtonName === "payment_info") {
+      return "payment_info";
+    }
+
+    return null;
+  };
+
   const createButtonNode = (message: proto.IMessage) => {
     if (message.listMessage) {
       return [
@@ -734,8 +748,13 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 
       const innerMessage =
         message.documentWithCaptionMessage?.message || message;
-
-      const buttonContent = createButtonNode(innerMessage);
+      const nativeFlowBizName = getNativeFlowBizName(innerMessage);
+      const buttonContent = nativeFlowBizName
+        ? null
+        : createButtonNode(innerMessage);
+      const rootNodes = nativeFlowBizName
+        ? [{ tag: "biz", attrs: { native_flow_name: nativeFlowBizName } }]
+        : undefined;
 
       if (buttonContent) {
         (stanza.content as BinaryNode[]).push({
@@ -747,12 +766,26 @@ export const makeMessagesSocket = (config: SocketConfig) => {
         logger.debug({ jid }, `adding biz node for buttons message`);
       }
 
+      if (nativeFlowBizName) {
+        const hasRootBiz = rootNodes?.some(
+          node =>
+            node.tag === "biz" &&
+            node.attrs?.native_flow_name === nativeFlowBizName
+        );
+        if (!hasRootBiz) {
+          logger.warn(
+            { jid, nativeFlowBizName },
+            "missing root biz node for native flow payment message"
+          );
+        }
+      }
+
       logger.debug(
         { msgId },
         `sending message to ${participants.length} devices`
       );
 
-      await sendNode(stanza);
+      await sendNode(stanza, rootNodes);
     });
 
     return msgId;

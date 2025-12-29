@@ -107,7 +107,7 @@ export const makeSocket = ({
   };
 
   /** send a binary node */
-  const sendNode = (frame: BinaryNode) => {
+  const sendNode = (frame: BinaryNode, rootNodes?: BinaryNode[]) => {
     if (logger.level === "trace") {
       logger.trace(
         { msgId: frame.attrs.id, fromMe: true, frame },
@@ -115,7 +115,7 @@ export const makeSocket = ({
       );
     }
 
-    const buff = encodeBinaryNode(frame);
+    const buff = encodeBinaryNode(frame, undefined, { rootNodes });
     return sendRawMessage(buff);
   };
 

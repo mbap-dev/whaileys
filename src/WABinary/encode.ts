@@ -2,12 +2,28 @@ import * as constants from "./constants";
 import { FullJid, jidDecode } from "./jid-utils";
 import type { BinaryNode, BinaryNodeCodingOptions } from "./types";
 
+type EncodeBinaryNodeOptions = {
+  buffer?: number[];
+  rootNodes?: BinaryNode[];
+};
+
 export const encodeBinaryNode = (
   node: BinaryNode,
   opts: Pick<BinaryNodeCodingOptions, "TAGS" | "TOKEN_MAP"> = constants,
-  buffer: number[] = [0]
+  options?: EncodeBinaryNodeOptions
 ): Buffer => {
-  const encoded = encodeBinaryNodeInner(node, opts, buffer);
+  const buffer = options?.buffer ?? [0];
+  const rootNodes = options?.rootNodes;
+  const nodeToEncode =
+    rootNodes?.length && node.tag === "message"
+      ? {
+          ...node,
+          content: Array.isArray(node.content)
+            ? [...rootNodes, ...node.content]
+            : rootNodes
+        }
+      : node;
+  const encoded = encodeBinaryNodeInner(nodeToEncode, opts, buffer);
   return Buffer.from(encoded);
 };
 
